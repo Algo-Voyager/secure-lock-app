@@ -145,7 +145,9 @@ class AppLockForegroundService : Service() {
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT or
-                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or // Prevent lock screen in recent apps
+                    Intent.FLAG_ACTIVITY_NO_HISTORY // Don't keep in back stack
             putExtra("show_lock_screen", true)
             putExtra("locked_package", packageName)
         }

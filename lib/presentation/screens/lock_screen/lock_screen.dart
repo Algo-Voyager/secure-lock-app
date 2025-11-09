@@ -90,8 +90,10 @@ class _LockScreenState extends State<LockScreen> {
     final theme = Theme.of(context);
     final authProvider = context.watch<AuthProvider>();
 
-    return Scaffold(
-      body: Container(
+    return PopScope(
+      canPop: false, // Prevent back button from bypassing lock screen
+      child: Scaffold(
+        body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -197,6 +199,7 @@ class _LockScreenState extends State<LockScreen> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

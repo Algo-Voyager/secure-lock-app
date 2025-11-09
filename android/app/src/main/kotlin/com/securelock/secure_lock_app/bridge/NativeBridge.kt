@@ -300,19 +300,29 @@ class NativeBridge(private val activity: Activity) {
                             Intent.FLAG_ACTIVITY_SINGLE_TOP
                         )
                         context.startActivity(launchIntent)
+
+                        // Give the target app time to come to foreground before finishing
+                        // This prevents visual glitches and ensures smooth transition
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            try {
+                                activity.finishAndRemoveTask()
+                            } catch (_: Exception) {
+                                activity.finish()
+                            }
+                        }, 300) // 300ms delay for smooth transition
+                    } else {
+                        // No launch intent, just finish immediately
+                        activity.finishAndRemoveTask()
                     }
-                } catch (_: Exception) { }
-            }
-            result.success(true)
-            // Close/move our overlay task to background so user stays in the target app
-            try {
-                activity.moveTaskToBack(true)
-            } catch (_: Exception) { }
-            try {
-                activity.finishAndRemoveTask()
-            } catch (_: Exception) {
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error launching target app", e)
+                    activity.finish()
+                }
+            } ?: run {
+                // No target package, just finish
                 activity.finish()
             }
+            result.success(true)
         } catch (e: Exception) {
             Log.e(TAG, "Error handling unlock success", e)
             result.error("UNLOCK_ERROR", e.message, null)
