@@ -114,6 +114,9 @@ class AppLockForegroundService : Service() {
                 Log.d(TAG, "Current foreground app: $currentPackage")
                 ChannelBridge.debugLog("Foreground app: $currentPackage", level = "debug", tag = "Service")
 
+                // Notify UnlockState about app switch (clears grace for other apps)
+                UnlockState.onAppSwitch(currentPackage)
+
                 // Check if this app is locked (backup to Accessibility Service)
                 try {
                     val prefs = com.securelock.secure_lock_app.utils.PreferencesHelper(this)

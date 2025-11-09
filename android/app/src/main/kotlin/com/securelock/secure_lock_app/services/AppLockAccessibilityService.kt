@@ -81,6 +81,9 @@ class AppLockAccessibilityService : AccessibilityService() {
         Log.d(TAG, "App opened: $packageName, Class: $className")
         ChannelBridge.debugLog("App opened: $packageName", level = "debug", tag = "Accessibility")
 
+        // Notify UnlockState about app switch (clears grace for other apps)
+        UnlockState.onAppSwitch(packageName)
+
         // Check if this app is locked and not temporarily allowed
         if (!UnlockState.isAllowed(packageName) && isAppLocked(packageName)) {
             Log.d(TAG, "Locked app detected: $packageName")

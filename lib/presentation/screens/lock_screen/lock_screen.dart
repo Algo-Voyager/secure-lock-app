@@ -72,8 +72,8 @@ class _LockScreenState extends State<LockScreen> {
     if (success) {
       // Apply native grace to avoid immediate re-lock and finish overlay activity
       await _nativeService.onUnlockSuccess(packageName: _lockedPackageName);
-      // Do not re-launch the app from Flutter; native brings it to front.
-      if (mounted) Navigator.of(context).pop(true);
+      // Native code will finish the activity and bring target app to front
+      // Do NOT call Navigator.pop() here as it would show Secure Lock home screen
     } else {
       setState(() {
         _errorMessage = authProvider.authMethod == AuthMethod.pin
@@ -187,7 +187,7 @@ class _LockScreenState extends State<LockScreen> {
                       if (success && mounted) {
                         // Apply native grace and return to target app (native brings it to front)
                         await _nativeService.onUnlockSuccess(packageName: _lockedPackageName);
-                        if (mounted) Navigator.of(context).pop(true);
+                        // Native code will finish the activity - do NOT pop here
                       }
                     },
                     icon: Icons.fingerprint,
