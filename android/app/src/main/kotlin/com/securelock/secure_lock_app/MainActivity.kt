@@ -2,15 +2,23 @@ package com.securelock.secure_lock_app
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import com.securelock.secure_lock_app.bridge.NativeBridge
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import com.securelock.secure_lock_app.bridge.ChannelBridge
 
 class MainActivity : FlutterFragmentActivity() {
 
     private lateinit var nativeBridge: NativeBridge
     private lateinit var methodChannel: MethodChannel
+    private var pendingLockedPackage: String? = null
+    private var pendingLockIntent: Intent? = null
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -27,6 +35,24 @@ class MainActivity : FlutterFragmentActivity() {
         methodChannel.setMethodCallHandler { call, result ->
             nativeBridge.handleMethodCall(call, result)
         }
+
+        // Expose channel to other components for lightweight debug logs
+        ChannelBridge.setChannel(methodChannel)
+
+        // If we received a lock request before the channel was ready, deliver it now
+        pendingLockedPackage?.let { pkg ->
+            Log.d(TAG, "Delivering pending lock screen for: $pkg")
+            methodChannel.invokeMethod("showLockScreen", mapOf(
+                "packageName" to pkg
+            ))
+            pendingLockedPackage = null
+        }
+
+        // Also handle any pending intent
+        pendingLockIntent?.let { intent ->
+            handleLockScreenIntent(intent)
+            pendingLockIntent = null
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,15 +68,31 @@ class MainActivity : FlutterFragmentActivity() {
         handleLockScreenIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Re-check intent when activity resumes (in case it was in background)
+        intent?.let { handleLockScreenIntent(it) }
+    }
+
     private fun handleLockScreenIntent(intent: Intent) {
         val showLockScreen = intent.getBooleanExtra("show_lock_screen", false)
         val lockedPackage = intent.getStringExtra("locked_package")
 
         if (showLockScreen && lockedPackage != null) {
-            // Notify Flutter to show lock screen
-            methodChannel.invokeMethod("showLockScreen", mapOf(
-                "packageName" to lockedPackage
-            ))
+            Log.d(TAG, "Handling lock screen intent for: $lockedPackage")
+            ChannelBridge.debugLog("Lock screen intent received for: $lockedPackage", level = "info", tag = "MainActivity")
+            
+            // Notify Flutter to show lock screen (or defer until channel ready)
+            if (::methodChannel.isInitialized) {
+                Log.d(TAG, "Method channel ready, sending lock screen request")
+                methodChannel.invokeMethod("showLockScreen", mapOf(
+                    "packageName" to lockedPackage
+                ))
+            } else {
+                Log.d(TAG, "Method channel not ready, storing package: $lockedPackage")
+                pendingLockedPackage = lockedPackage
+                pendingLockIntent = intent
+            }
         }
     }
 

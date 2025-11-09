@@ -1,9 +1,75 @@
 import 'package:flutter/services.dart';
 import '../utils/logger.dart';
+import '../utils/debug_logger.dart';
+import 'navigation_service.dart';
 
 /// Service to communicate with native Android code via method channels
 class NativeService {
   static const _channel = MethodChannel('com.securelock.app/lock');
+  static bool _callbacksInitialized = false;
+
+  /// Initialize handlers for messages coming from native (Android)
+  /// - showLockScreen: request from native to display the lock UI
+  void initializeCallbacks() {
+    if (_callbacksInitialized) return;
+    _callbacksInitialized = true;
+
+    _channel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case 'debugLog':
+          try {
+            final args = (call.arguments is Map)
+                ? Map<String, dynamic>.from(call.arguments as Map)
+                : <String, dynamic>{};
+            final message = args['message']?.toString() ?? '';
+            final tag = args['tag']?.toString();
+            final levelStr = args['level']?.toString() ?? 'info';
+            final level = _parseLevel(levelStr);
+            // Route to in-app DebugLogger
+            // Do not spam production logs; this is internal UI
+            DebugLogger().log(message, level: level, tag: tag);
+            return true;
+          } catch (e) {
+            logger.e('Error handling debugLog', error: e);
+            return false;
+          }
+        case 'showLockScreen':
+          try {
+            final args = (call.arguments is Map) ? Map<String, dynamic>.from(call.arguments as Map) : <String, dynamic>{};
+            final packageName = args['packageName'] as String?;
+            logger.i('Native requested lock screen for: ${packageName ?? 'unknown'}');
+            await NavigationService.instance.showLockScreen(packageName: packageName);
+            return true;
+          } catch (e) {
+            logger.e('Error handling showLockScreen', error: e);
+            return false;
+          }
+        case 'onPermissionResult':
+          // Currently handled by UI lifecycle (Permission Wizard re-checks on resume)
+          // Keep a no-op here to avoid unhandled method warnings.
+          logger.d('Received onPermissionResult from native');
+          return true;
+        default:
+          return false;
+      }
+    });
+  }
+
+  LogLevel _parseLevel(String level) {
+    switch (level.toLowerCase()) {
+      case 'debug':
+        return LogLevel.debug;
+      case 'warning':
+        return LogLevel.warning;
+      case 'error':
+        return LogLevel.error;
+      case 'success':
+        return LogLevel.success;
+      case 'info':
+      default:
+        return LogLevel.info;
+    }
+  }
 
   /// Start the foreground service
   Future<bool> startForegroundService() async {
@@ -204,6 +270,33 @@ class NativeService {
       return result == true;
     } catch (e) {
       logger.e('Error requesting device admin', error: e);
+      return false;
+    }
+  }
+ 
+  /// Notify native layer to return to the previously opened app after a successful unlock.
+  Future<bool> onUnlockSuccess({String? packageName}) async {
+    try {
+      final result = await _channel.invokeMethod('onUnlockSuccess', {
+        'packageName': packageName,
+      });
+      return result == true;
+    } catch (e) {
+      logger.e('Error notifying unlock success', error: e);
+      return false;
+    }
+  }
+
+  /// Launch an app by package name
+  Future<bool> launchApp(String packageName) async {
+    try {
+      final result = await _channel.invokeMethod('launchApp', {
+        'packageName': packageName,
+      });
+      logger.i('App launched: $packageName');
+      return result == true;
+    } catch (e) {
+      logger.e('Error launching app', error: e);
       return false;
     }
   }

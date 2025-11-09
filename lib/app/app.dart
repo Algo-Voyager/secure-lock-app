@@ -10,6 +10,7 @@ import '../presentation/providers/automation_provider.dart';
 import '../presentation/providers/vault_provider.dart';
 import '../presentation/providers/permissions_provider.dart';
 import 'routes.dart';
+import '../core/services/navigation_service.dart';
 
 /// Main application widget
 class SecureLockApp extends StatelessWidget {
@@ -32,6 +33,7 @@ class SecureLockApp extends StatelessWidget {
           return MaterialApp(
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
+            navigatorKey: NavigationService.instance.navigatorKey,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
             themeMode: themeProvider.materialThemeMode,

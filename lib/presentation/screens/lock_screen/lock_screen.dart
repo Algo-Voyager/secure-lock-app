@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/strings.dart';
+import '../../../core/services/native_service.dart';
+import '../../../core/utils/debug_logger.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
@@ -16,8 +18,25 @@ class LockScreen extends StatefulWidget {
 class _LockScreenState extends State<LockScreen> {
   final TextEditingController _pinController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final NativeService _nativeService = NativeService();
   String? _errorMessage;
   bool _isLoading = false;
+  String? _lockedPackageName;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get package name from route arguments
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic>) {
+        _lockedPackageName = args['packageName'] as String?;
+        if (_lockedPackageName != null) {
+          DebugLogger().log('Lock screen opened for: $_lockedPackageName', tag: 'LockScreen');
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -51,7 +70,10 @@ class _LockScreenState extends State<LockScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
-      Navigator.of(context).pop(true);
+      // Apply native grace to avoid immediate re-lock and finish overlay activity
+      await _nativeService.onUnlockSuccess(packageName: _lockedPackageName);
+      // Do not re-launch the app from Flutter; native brings it to front.
+      if (mounted) Navigator.of(context).pop(true);
     } else {
       setState(() {
         _errorMessage = authProvider.authMethod == AuthMethod.pin
@@ -161,7 +183,9 @@ class _LockScreenState extends State<LockScreen> {
                     onPressed: () async {
                       final success = await authProvider.authenticateWithBiometric();
                       if (success && mounted) {
-                        Navigator.of(context).pop(true);
+                        // Apply native grace and return to target app (native brings it to front)
+                        await _nativeService.onUnlockSuccess(packageName: _lockedPackageName);
+                        if (mounted) Navigator.of(context).pop(true);
                       }
                     },
                     icon: Icons.fingerprint,
