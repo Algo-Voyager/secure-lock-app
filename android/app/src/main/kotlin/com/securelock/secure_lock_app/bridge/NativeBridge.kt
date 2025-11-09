@@ -287,25 +287,52 @@ class NativeBridge(private val activity: Activity) {
     private fun onUnlockSuccess(packageName: String?, result: MethodChannel.Result) {
         try {
             val target = packageName ?: com.securelock.secure_lock_app.services.AppLockForegroundService.lastLockedPackage
-            target?.let { pkg ->
-                // Apply grace period to prevent immediate re-lock
-                com.securelock.secure_lock_app.utils.UnlockState.allow(pkg)
-                ChannelBridge.debugLog("Unlock success for $pkg (grace applied)", tag = TAG)
-            }
 
-            // Simply finish the activity - the target app is already running in background
-            // and will naturally come to foreground when we finish
-            try {
-                activity.finishAndRemoveTask()
-            } catch (_: Exception) {
+            if (target != null) {
+                Log.d(TAG, "🔓 UNLOCK SUCCESS: $target")
+
+                // Apply grace period to prevent immediate re-lock
+                com.securelock.secure_lock_app.utils.UnlockState.allow(target)
+                Log.d(TAG, "✓ Grace period applied (3 seconds)")
+
+                // Bring target app to foreground BEFORE finishing
+                try {
+                    val launchIntent = context.packageManager.getLaunchIntentForPackage(target)
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(
+                            Intent.FLAG_ACTIVITY_NEW_TASK or
+                            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        )
+                        Log.d(TAG, "✓ Bringing $target to foreground...")
+                        context.startActivity(launchIntent)
+
+                        // Small delay to let target app start coming to front
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            Log.d(TAG, "✓ Finishing lock screen...")
+                            try {
+                                activity.finishAndRemoveTask()
+                            } catch (_: Exception) {
+                                activity.finish()
+                            }
+                            Log.d(TAG, "✓ Lock screen finished - user should be in $target now")
+                        }, 100)
+                    } else {
+                        Log.w(TAG, "⚠ No launch intent for $target, just finishing")
+                        activity.finish()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error bringing app to foreground: ${e.message}")
+                    activity.finish()
+                }
+            } else {
+                Log.w(TAG, "⚠ No target package, just finishing")
                 activity.finish()
             }
 
             result.success(true)
         } catch (e: Exception) {
-            Log.e(TAG, "Error handling unlock success", e)
+            Log.e(TAG, "❌ Error in unlock flow: ${e.message}", e)
             result.error("UNLOCK_ERROR", e.message, null)
-            ChannelBridge.debugLog("Unlock success error: ${e.message}", level = "error", tag = TAG)
         }
     }
 

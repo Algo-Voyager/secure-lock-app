@@ -49,29 +49,22 @@ class AppLockForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "Service onCreate")
         createNotificationChannel()
-        ChannelBridge.debugLog("Foreground service created", tag = "Service")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_SERVICE -> {
-                Log.d(TAG, "Starting foreground service")
                 startForegroundService()
-                ChannelBridge.debugLog("Foreground service start requested", tag = "Service")
             }
             ACTION_STOP_SERVICE -> {
-                Log.d(TAG, "Stopping foreground service")
                 stopForegroundService()
-                ChannelBridge.debugLog("Foreground service stop requested", tag = "Service")
             }
             ACTION_SHOW_LOCK_SCREEN -> {
                 val packageName = intent.getStringExtra(EXTRA_PACKAGE_NAME)
                 if (packageName != null) {
                     lastLockedPackage = packageName
                     showLockScreenForPackage(packageName)
-                    ChannelBridge.debugLog("Show lock screen for $packageName", tag = "Service")
                 }
             }
         }
@@ -87,8 +80,7 @@ class AppLockForegroundService : Service() {
         // Start monitoring foreground apps
         handler.post(monitoringRunnable)
 
-        Log.d(TAG, "Foreground service started")
-        ChannelBridge.debugLog("Foreground service started", level = "success", tag = "Service")
+        Log.d(TAG, "✓ Foreground Service Started - Monitoring every 200ms")
     }
 
     private fun stopForegroundService() {
@@ -97,8 +89,7 @@ class AppLockForegroundService : Service() {
         stopSelf()
         isServiceRunning = false
 
-        Log.d(TAG, "Foreground service stopped")
-        ChannelBridge.debugLog("Foreground service stopped", level = "warning", tag = "Service")
+        Log.w(TAG, "⚠ Foreground Service Stopped")
     }
 
     private fun monitorForegroundApp() {
@@ -111,55 +102,45 @@ class AppLockForegroundService : Service() {
                 // Ignore system apps and our own app
                 if (currentPackage == packageName) return
 
-                Log.d(TAG, "Current foreground app: $currentPackage")
-                ChannelBridge.debugLog("Foreground app: $currentPackage", level = "debug", tag = "Service")
-
                 // Notify UnlockState about app switch (clears grace for other apps)
-                UnlockState.onAppSwitch(currentPackage)
+                val graceCleared = UnlockState.onAppSwitch(currentPackage)
 
                 // Check if this app is locked (backup to Accessibility Service)
                 try {
                     val prefs = com.securelock.secure_lock_app.utils.PreferencesHelper(this)
                     if (!UnlockState.isAllowed(currentPackage) && prefs.isAppLocked(currentPackage)) {
-                        Log.d(TAG, "Locked app detected via usage stats: $currentPackage")
+                        Log.d(TAG, "🔒 LOCKED APP DETECTED (via UsageStats): $currentPackage")
                         showLockScreenForPackage(currentPackage)
-                        ChannelBridge.debugLog("Locked app via usage stats: $currentPackage", level = "success", tag = "Service")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error checking locked apps from service", e)
-                    ChannelBridge.debugLog("Error checking locked apps: ${e.message}", level = "error", tag = "Service")
+                    Log.e(TAG, "❌ Error checking locked apps: ${e.message}")
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error monitoring foreground app", e)
-            ChannelBridge.debugLog("Error monitoring foreground: ${e.message}", level = "error", tag = "Service")
+            Log.e(TAG, "❌ Error monitoring foreground app: ${e.message}")
         }
     }
 
     private fun showLockScreenForPackage(packageName: String) {
-        Log.d(TAG, "Showing lock screen for: $packageName")
-        ChannelBridge.debugLog("Foreground service showing lock screen for: $packageName", level = "info", tag = "Service")
         lastLockedPackage = packageName
 
         // Launch lock screen overlay activity
-        // Use FLAG_ACTIVITY_NEW_TASK to bring app to foreground even from background
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_BROUGHT_TO_FRONT or
                     Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or // Prevent lock screen in recent apps
-                    Intent.FLAG_ACTIVITY_NO_HISTORY // Don't keep in back stack
+                    Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS or
+                    Intent.FLAG_ACTIVITY_NO_HISTORY
             putExtra("show_lock_screen", true)
             putExtra("locked_package", packageName)
         }
         try {
             startActivity(intent)
-            ChannelBridge.debugLog("Lock screen activity started successfully", level = "success", tag = "Service")
+            Log.d(TAG, "✓ Lock screen activity launched")
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting lock screen activity", e)
-            ChannelBridge.debugLog("Error starting lock screen: ${e.message}", level = "error", tag = "Service")
+            Log.e(TAG, "❌ Error launching lock screen: ${e.message}")
         }
     }
 
@@ -206,7 +187,6 @@ class AppLockForegroundService : Service() {
         super.onDestroy()
         handler.removeCallbacks(monitoringRunnable)
         isServiceRunning = false
-        Log.d(TAG, "Service destroyed")
 
         // Restart service if it was stopped unexpectedly
         val restartIntent = Intent(this, AppLockForegroundService::class.java).apply {
@@ -222,7 +202,6 @@ class AppLockForegroundService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        // Service should continue running even if app is removed from recent tasks
-        Log.d(TAG, "Task removed, service continues")
+        // Service continues running
     }
 }

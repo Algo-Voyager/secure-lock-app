@@ -27,9 +27,10 @@ object UnlockState {
     /**
      * Call this when a new app comes to foreground.
      * Clears grace for all OTHER apps, so they'll lock when user returns to them.
+     * @return List of package names that had their grace cleared
      */
     @JvmStatic
-    fun onAppSwitch(currentApp: String) {
+    fun onAppSwitch(currentApp: String): List<String> {
         // If switching to a different app, clear grace for all other apps
         if (currentApp != lastForegroundApp) {
             lastForegroundApp = currentApp
@@ -37,6 +38,8 @@ object UnlockState {
             // Collect keys first to avoid concurrent modification
             val keysToRemove = allowedUntil.keys.filter { it != currentApp }
             keysToRemove.forEach { allowedUntil.remove(it) }
+            return keysToRemove.toList()
         }
+        return emptyList()
     }
 }

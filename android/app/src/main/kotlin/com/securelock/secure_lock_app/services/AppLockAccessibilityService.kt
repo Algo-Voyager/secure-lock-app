@@ -48,8 +48,7 @@ class AppLockAccessibilityService : AccessibilityService() {
         this.serviceInfo = info
         isServiceRunning = true
 
-        Log.d(TAG, "Accessibility Service Connected")
-        ChannelBridge.debugLog("Accessibility service connected", tag = "Accessibility")
+        Log.d(TAG, "✓ Accessibility Service Connected - Monitoring app switches")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -78,16 +77,16 @@ class AppLockAccessibilityService : AccessibilityService() {
             return
         }
 
-        Log.d(TAG, "App opened: $packageName, Class: $className")
-        ChannelBridge.debugLog("App opened: $packageName", level = "debug", tag = "Accessibility")
-
         // Notify UnlockState about app switch (clears grace for other apps)
-        UnlockState.onAppSwitch(packageName)
+        val graceCleared = UnlockState.onAppSwitch(packageName)
+        if (graceCleared.isNotEmpty()) {
+            Log.d(TAG, "🔄 APP SWITCH: $packageName | Grace cleared for: $graceCleared")
+        }
 
         // Check if this app is locked and not temporarily allowed
         if (!UnlockState.isAllowed(packageName) && isAppLocked(packageName)) {
-            Log.d(TAG, "Locked app detected: $packageName")
-            ChannelBridge.debugLog("Locked app detected: $packageName", level = "success", tag = "Accessibility")
+            Log.d(TAG, "🔒 LOCKED APP DETECTED: $packageName")
+            Log.d(TAG, "✓ Showing lock screen...")
 
             // Broadcast to Flutter app
             broadcastAppOpened(packageName)
@@ -111,9 +110,6 @@ class AppLockAccessibilityService : AccessibilityService() {
     }
 
     private fun showLockScreen(packageName: String) {
-        Log.d(TAG, "Accessibility service requesting lock screen for: $packageName")
-        ChannelBridge.debugLog("Accessibility service requesting lock screen for: $packageName", level = "info", tag = "Accessibility")
-        
         // Send to overlay service to show lock screen
         val intent = Intent(this, AppLockForegroundService::class.java).apply {
             action = AppLockForegroundService.ACTION_SHOW_LOCK_SCREEN
@@ -125,22 +121,19 @@ class AppLockAccessibilityService : AccessibilityService() {
             } else {
                 startService(intent)
             }
-            ChannelBridge.debugLog("Lock screen request sent to foreground service", level = "success", tag = "Accessibility")
+            Log.d(TAG, "✓ Lock screen request sent")
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting service for lock screen", e)
-            ChannelBridge.debugLog("Error starting service: ${e.message}", level = "error", tag = "Accessibility")
+            Log.e(TAG, "❌ Error starting lock screen: ${e.message}")
         }
     }
 
     override fun onInterrupt() {
-        Log.d(TAG, "Accessibility Service Interrupted")
-        ChannelBridge.debugLog("Accessibility service interrupted", level = "warning", tag = "Accessibility")
+        // Service interrupted - no action needed
     }
 
     override fun onDestroy() {
         super.onDestroy()
         isServiceRunning = false
-        Log.d(TAG, "Accessibility Service Destroyed")
-        ChannelBridge.debugLog("Accessibility service destroyed", level = "warning", tag = "Accessibility")
+        Log.w(TAG, "⚠ Accessibility Service Destroyed")
     }
 }
