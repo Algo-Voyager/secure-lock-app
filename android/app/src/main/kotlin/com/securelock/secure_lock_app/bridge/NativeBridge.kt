@@ -305,12 +305,13 @@ class NativeBridge(private val activity: Activity) {
             } else {
                 Log.w(TAG, "⚠ No target package, just finishing")
                 activity.finish()
-                FlowLogger.endFlow(false)
+                // Don't call endFlow here - no flow was started
             }
 
             result.success(true)
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error in unlock flow: ${e.message}", e)
+            FlowLogger.endFlow(false)
             result.error("UNLOCK_ERROR", e.message, null)
         }
     }

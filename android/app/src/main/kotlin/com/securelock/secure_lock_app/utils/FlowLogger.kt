@@ -51,10 +51,13 @@ object FlowLogger {
         val totalElapsed = now - flowStartTime
         lastEventTime = now
 
+        val detailsLine = if (details.isNotEmpty()) {
+            "\n│     └─ $details${" ".repeat(maxOf(0, 49 - details.length))}│"
+        } else ""
+
         val message = """
 ┌───────────────────────────────────────────────────────────┐
-│  ✓ $step${" ".repeat(maxOf(0, 53 - step.length))}│
-${if (details.isNotEmpty()) "│     └─ $details${" ".repeat(maxOf(0, 49 - details.length))}│" else ""}
+│  ✓ $step${" ".repeat(maxOf(0, 53 - step.length))}│$detailsLine
 │  ⏱️  Duration: ${elapsed}ms (Total: ${totalElapsed}ms)${" ".repeat(maxOf(0, 28 - elapsed.toString().length - totalElapsed.toString().length))}│
 └───────────────────────────────────────────────────────────┘
      │
