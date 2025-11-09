@@ -42,4 +42,12 @@ object UnlockState {
         }
         return emptyList()
     }
+
+    /**
+     * Get the last foreground app (for logging)
+     */
+    @JvmStatic
+    fun getLastForegroundApp(): String? {
+        return lastForegroundApp
+    }
 }

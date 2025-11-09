@@ -9,6 +9,7 @@ import android.view.accessibility.AccessibilityEvent
 import com.securelock.secure_lock_app.utils.PreferencesHelper
 import com.securelock.secure_lock_app.bridge.ChannelBridge
 import com.securelock.secure_lock_app.utils.UnlockState
+import com.securelock.secure_lock_app.utils.FlowLogger
 
 /**
  * Accessibility Service to detect when users switch to locked apps
@@ -78,15 +79,16 @@ class AppLockAccessibilityService : AccessibilityService() {
         }
 
         // Notify UnlockState about app switch (clears grace for other apps)
+        val lastApp = UnlockState.getLastForegroundApp()
         val graceCleared = UnlockState.onAppSwitch(packageName)
+
         if (graceCleared.isNotEmpty()) {
-            Log.d(TAG, "🔄 APP SWITCH: $packageName | Grace cleared for: $graceCleared")
+            FlowLogger.logAppSwitch(lastApp, packageName, graceCleared)
         }
 
         // Check if this app is locked and not temporarily allowed
         if (!UnlockState.isAllowed(packageName) && isAppLocked(packageName)) {
-            Log.d(TAG, "🔒 LOCKED APP DETECTED: $packageName")
-            Log.d(TAG, "✓ Showing lock screen...")
+            FlowLogger.startFlow(packageName, "Auto (Accessibility Service)")
 
             // Broadcast to Flutter app
             broadcastAppOpened(packageName)
@@ -121,7 +123,7 @@ class AppLockAccessibilityService : AccessibilityService() {
             } else {
                 startService(intent)
             }
-            Log.d(TAG, "✓ Lock screen request sent")
+            FlowLogger.logStep("Lock Screen Request Sent", "via Accessibility Service")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error starting lock screen: ${e.message}")
         }

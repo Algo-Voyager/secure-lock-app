@@ -18,6 +18,7 @@ import com.securelock.secure_lock_app.utils.PreferencesHelper
 import com.securelock.secure_lock_app.utils.UsageStatsHelper
 import io.flutter.plugin.common.MethodChannel
 import com.securelock.secure_lock_app.bridge.ChannelBridge
+import com.securelock.secure_lock_app.utils.FlowLogger
 
 /**
  * Bridge between Flutter and Native Android code
@@ -264,11 +265,11 @@ class NativeBridge(private val activity: Activity) {
             val target = packageName ?: com.securelock.secure_lock_app.services.AppLockForegroundService.lastLockedPackage
 
             if (target != null) {
-                Log.d(TAG, "🔓 UNLOCK SUCCESS: $target")
-
                 // Apply grace period to prevent immediate re-lock
                 com.securelock.secure_lock_app.utils.UnlockState.allow(target)
-                Log.d(TAG, "✓ Grace period applied (3 seconds)")
+
+                // Log unlock success
+                FlowLogger.logUnlock(target)
 
                 // Bring target app to foreground BEFORE finishing
                 try {
@@ -278,30 +279,33 @@ class NativeBridge(private val activity: Activity) {
                             Intent.FLAG_ACTIVITY_NEW_TASK or
                             Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                         )
-                        Log.d(TAG, "✓ Bringing $target to foreground...")
+                        FlowLogger.logStep("Bringing App to Foreground", target)
                         context.startActivity(launchIntent)
 
                         // Small delay to let target app start coming to front
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            Log.d(TAG, "✓ Finishing lock screen...")
+                            FlowLogger.logStep("Finishing Lock Screen", "Closing MainActivity")
                             try {
                                 activity.finishAndRemoveTask()
                             } catch (_: Exception) {
                                 activity.finish()
                             }
-                            Log.d(TAG, "✓ Lock screen finished - user should be in $target now")
+                            FlowLogger.endFlow(true)
                         }, 100)
                     } else {
                         Log.w(TAG, "⚠ No launch intent for $target, just finishing")
                         activity.finish()
+                        FlowLogger.endFlow(false)
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "❌ Error bringing app to foreground: ${e.message}")
                     activity.finish()
+                    FlowLogger.endFlow(false)
                 }
             } else {
                 Log.w(TAG, "⚠ No target package, just finishing")
                 activity.finish()
+                FlowLogger.endFlow(false)
             }
 
             result.success(true)

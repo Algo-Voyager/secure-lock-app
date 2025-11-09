@@ -14,6 +14,7 @@ import com.securelock.secure_lock_app.R
 import com.securelock.secure_lock_app.utils.UsageStatsHelper
 import com.securelock.secure_lock_app.bridge.ChannelBridge
 import com.securelock.secure_lock_app.utils.UnlockState
+import com.securelock.secure_lock_app.utils.FlowLogger
 
 /**
  * Foreground Service for continuous app monitoring
@@ -109,7 +110,7 @@ class AppLockForegroundService : Service() {
                 try {
                     val prefs = com.securelock.secure_lock_app.utils.PreferencesHelper(this)
                     if (!UnlockState.isAllowed(currentPackage) && prefs.isAppLocked(currentPackage)) {
-                        Log.d(TAG, "🔒 LOCKED APP DETECTED (via UsageStats): $currentPackage")
+                        FlowLogger.startFlow(currentPackage, "Auto (Usage Stats - Backup)")
                         showLockScreenForPackage(currentPackage)
                     }
                 } catch (e: Exception) {
@@ -138,9 +139,10 @@ class AppLockForegroundService : Service() {
         }
         try {
             startActivity(intent)
-            Log.d(TAG, "✓ Lock screen activity launched")
+            FlowLogger.logStep("Lock Screen Activity Launched", "MainActivity started")
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error launching lock screen: ${e.message}")
+            FlowLogger.endFlow(false)
         }
     }
 
