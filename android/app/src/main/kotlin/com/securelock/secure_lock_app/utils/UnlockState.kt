@@ -34,11 +34,9 @@ object UnlockState {
         if (currentApp != lastForegroundApp) {
             lastForegroundApp = currentApp
             // Clear grace for all apps except the current one
-            allowedUntil.keys.forEach { pkg ->
-                if (pkg != currentApp) {
-                    allowedUntil.remove(pkg)
-                }
-            }
+            // Collect keys first to avoid concurrent modification
+            val keysToRemove = allowedUntil.keys.filter { it != currentApp }
+            keysToRemove.forEach { allowedUntil.remove(it) }
         }
     }
 }

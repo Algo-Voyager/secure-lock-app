@@ -288,40 +288,19 @@ class NativeBridge(private val activity: Activity) {
         try {
             val target = packageName ?: com.securelock.secure_lock_app.services.AppLockForegroundService.lastLockedPackage
             target?.let { pkg ->
+                // Apply grace period to prevent immediate re-lock
                 com.securelock.secure_lock_app.utils.UnlockState.allow(pkg)
                 ChannelBridge.debugLog("Unlock success for $pkg (grace applied)", tag = TAG)
-                // Proactively bring the target app to front
-                try {
-                    val launchIntent = context.packageManager.getLaunchIntentForPackage(pkg)
-                    if (launchIntent != null) {
-                        launchIntent.addFlags(
-                            Intent.FLAG_ACTIVITY_NEW_TASK or
-                            Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                            Intent.FLAG_ACTIVITY_SINGLE_TOP
-                        )
-                        context.startActivity(launchIntent)
+            }
 
-                        // Give the target app time to come to foreground before finishing
-                        // This prevents visual glitches and ensures smooth transition
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            try {
-                                activity.finishAndRemoveTask()
-                            } catch (_: Exception) {
-                                activity.finish()
-                            }
-                        }, 300) // 300ms delay for smooth transition
-                    } else {
-                        // No launch intent, just finish immediately
-                        activity.finishAndRemoveTask()
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error launching target app", e)
-                    activity.finish()
-                }
-            } ?: run {
-                // No target package, just finish
+            // Simply finish the activity - the target app is already running in background
+            // and will naturally come to foreground when we finish
+            try {
+                activity.finishAndRemoveTask()
+            } catch (_: Exception) {
                 activity.finish()
             }
+
             result.success(true)
         } catch (e: Exception) {
             Log.e(TAG, "Error handling unlock success", e)

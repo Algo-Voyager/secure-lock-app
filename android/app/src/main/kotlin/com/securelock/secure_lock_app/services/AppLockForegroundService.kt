@@ -41,7 +41,7 @@ class AppLockForegroundService : Service() {
     private val monitoringRunnable = object : Runnable {
         override fun run() {
             monitorForegroundApp()
-            handler.postDelayed(this, 1000) // Check every 1 second
+            handler.postDelayed(this, 200) // Check every 200ms for faster response
         }
     }
 
