@@ -26,39 +26,46 @@ Follow the on-screen wizard to set up the app and explore its features.
 
 ## Features
 
-### Core Features (MVP - Currently Implemented)
-- ✅ **Multi-Method Authentication**
-  - PIN (4-6 digits)
-  - Password with strength validation
-  - Biometric (fingerprint/face) - Android only
+### Core Features (Implemented)
+- ✅ Authentication
+  - PIN (4–6 digits)
+  - Password with hashing + salt
+  - Pattern lock
+  - Biometric (fingerprint/face) on Android
+  - Failed-attempt tracking + 5-attempt lockout
 
-- ✅ **App Locking System**
-  - Lock/unlock individual apps
-  - Visual app selection interface
-  - Search and filter apps
-  - Persistent lock settings
+- ✅ App Locking System (Android)
+  - Lock/unlock individual apps with persistent storage
+  - Installed app listing via native bridge
+  - Foreground interception via AccessibilityService
+  - ForegroundService + overlay to show lock screen on top of target apps
 
-- ✅ **Security Features**
-  - AES-256-GCM encryption
-  - Secure storage for sensitive data
-  - Password hashing with salt
-  - Failed attempt tracking
-  - Auto-lockout after 5 failed attempts
+- ✅ Security & Storage
+  - AES-256-GCM encryption service for strings and bytes
+  - flutter_secure_storage for keys/secrets, Hive for app data, SharedPreferences for native sync
+  - Basic root/tamper checks and device security info API
 
-- ✅ **User Experience**
-  - Beautiful Material 3 design
-  - Light/Dark/System themes
-  - Smooth onboarding flow
-  - Intuitive dashboard
-  - Real-time statistics
+- ✅ Privacy Vault
+  - Encrypted file vault (add, retrieve/decrypt, export)
+  - Optional decoy vault directory
 
-### Planned Features (See Complete Prompt.md)
-- Intruder detection with photo capture
-- Smart automation (location/time/WiFi-based)
-- Privacy vault for photos/videos
-- Usage analytics and monitoring
-- Break-in alerts
-- Anti-tampering measures
+- ✅ Automation (Beta)
+  - Rules engine with location, time, and WiFi triggers
+  - Periodic/background evaluation + listeners
+
+- ✅ Backup & Restore
+  - Encrypted backup file generation and restore flow
+  - Simple share/export of backups
+
+- ✅ UX
+  - Material 3 theming (light/dark/system)
+  - Onboarding, settings, dashboard, analytics and debug monitor screens
+  - Reusable UI widgets (buttons, fields, pattern lock)
+
+### Roadmap / In Progress
+- Usage analytics visualization and richer stats
+- Break-in alerts/notifications and advanced anti-tampering (signature checks)
+- Cloud sync options for backups
 
 ---
 
@@ -152,9 +159,37 @@ flutter build apk --release
 adb install build/app/outputs/flutter-apk/app-release.apk
 ```
 
+#### c. Required Android Permissions & Toggles
+To enable full functionality on Android, ensure these are granted:
+
+- Overlay permission (draw over other apps)
+- Usage Access (App usage/foreground detection)
+- Accessibility Service (foreground app interception)
+- Device Admin (optional, for uninstall hardening)
+- Camera (intruder capture), Location (for automation), Storage (vault/backup)
+
+The app will guide you to the correct settings screens when needed. You can also enable them manually in system Settings.
+
+---
+
+## Android Integration
+
+- ForegroundService (`AppLockForegroundService`)
+  - Runs persistently with a low-priority notification; monitors foreground app context
+- AccessibilityService (`AppLockAccessibilityService`)
+  - Detects app switches and triggers the lock screen overlay when a locked app opens
+- Boot Receiver (`BootReceiver`)
+  - Starts the foreground service automatically after device boot
+- Device Admin (`AppLockDeviceAdmin`)
+  - Helps harden uninstall path; user must disable admin before uninstalling
+- Method Channel (`com.securelock.app/lock`)
+  - Exposes service control, installed app list, usage/overlay/accessibility permission helpers, and device admin requests to Flutter
+
 ---
 
 ## Testing Guide (End-to-End)
+
+Note: On web, installed apps and lock interception are simulated for UI testing. To test real app interception and overlays, run on an Android device with the required permissions enabled.
 
 ### Step 1: Launch the App
 Open http://localhost:8080 in your browser (if running on web)
@@ -355,7 +390,9 @@ lib/
 │   │   └── logger.dart               # Centralized logging
 │   └── services/
 │       ├── encryption_service.dart   # AES-256-GCM encryption
-│       └── storage_service.dart      # Hive + SecureStorage + SharedPrefs
+│       ├── storage_service.dart      # Hive + SecureStorage + SharedPrefs
+│       ├── security_service.dart     # Root/tamper checks & security info
+│       └── native_service.dart       # MethodChannel bridge to Android
 ├── data/
 │   └── models/
 │       ├── user_settings_model.dart  # User settings with JSON serialization
@@ -364,7 +401,11 @@ lib/
 └── presentation/
     ├── providers/                     # State management (Provider pattern)
     │   ├── auth_provider.dart        # Authentication logic
-    │   ├── app_lock_provider.dart    # App locking logic
+    │   ├── app_lock_provider.dart    # App locking + native sync/service
+    │   ├── automation_provider.dart  # Automation rules state
+    │   ├── vault_provider.dart       # Encrypted vault state
+    │   ├── intruder_provider.dart    # Intruder detection state
+    │   └── permissions_provider.dart # Permission flows
     │   └── theme_provider.dart       # Theme management
     ├── widgets/                       # Reusable UI components
     │   ├── custom_button.dart        # Custom buttons
@@ -510,36 +551,24 @@ adb devices
 ## Features Implementation Status
 
 ### ✅ Completed (MVP)
-- [x] Core architecture setup
-- [x] Encryption service (AES-256-GCM)
-- [x] Secure storage (Hive + flutter_secure_storage)
-- [x] PIN authentication
-- [x] Password authentication
-- [x] Biometric authentication (Android only)
-- [x] App locking system (basic)
-- [x] App selection interface
-- [x] Lock screen
-- [x] Failed attempt tracking
-- [x] Auto-lockout mechanism
-- [x] Theme switching (light/dark)
-- [x] Onboarding flow
-- [x] Settings screen
-- [x] Data persistence
-- [x] Logger utility
+- [x] Core architecture setup (clean structure, Provider state)
+- [x] Encryption service (AES-256-GCM) for text/files
+- [x] Storage service (Hive + flutter_secure_storage + SharedPreferences)
+- [x] Authentication: PIN, Password, Pattern, Biometric (Android)
+- [x] App locking with native Android integration (AccessibilityService + ForegroundService + overlay)
+- [x] Device Admin receiver + Boot receiver
+- [x] Lock screen with attempt tracking and 5-attempt lockout
+- [x] Privacy Vault (add/retrieve/export, decoy)
+- [x] Automation rules (time/location/WiFi) with background evaluation
+- [x] Backup & Restore service (encrypted backups)
+- [x] Theming (light/dark/system), onboarding, settings, analytics/debug screens
+- [x] Logger + debug monitor
 
-### 🚧 Planned (Future Phases)
-- [ ] Intruder detection with camera
-- [ ] Location-based automation
-- [ ] Time-based automation
-- [ ] WiFi-based automation
-- [ ] Privacy vault (photos/videos/files)
-- [ ] Usage analytics
-- [ ] Security logs viewer
-- [ ] Break-in alerts
-- [ ] Anti-tampering (root detection)
-- [ ] Device admin (prevent uninstall)
-- [ ] Backup & sync
-- [ ] Advanced features (see Complete Prompt.md)
+### 🚧 In Progress / Next
+- [ ] Richer analytics and usage insights
+- [ ] Break-in alerts/notifications
+- [ ] Advanced anti-tampering (signature verification, stronger heuristics)
+- [ ] Cloud sync options for backups
 
 ---
 
@@ -566,10 +595,10 @@ adb devices
 
 ## Additional Resources
 
-- **Full Specification:** See `Complete Prompt.md` in project root
-- **Project Guidelines:** See `CLAUDE.md` in project root
-- **Flutter Documentation:** https://docs.flutter.dev/
-- **Android Developer Guide:** https://developer.android.com/
+- Implementation tracker: `IMPLEMENTATION_STATUS.md`
+- Agent guidelines: `AGENTS.md`
+- Flutter Documentation: https://docs.flutter.dev/
+- Android Developer Guide: https://developer.android.com/
 
 ---
 
