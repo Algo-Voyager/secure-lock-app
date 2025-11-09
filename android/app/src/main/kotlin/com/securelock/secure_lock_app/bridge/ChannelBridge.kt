@@ -39,30 +39,29 @@ object ChannelBridge {
     }
 
     fun debugLog(message: String, level: String = "info", tag: String? = null) {
+        // Debug logs disabled - use logcat instead
+        // All in-app debug tab logging has been removed
+    }
+
+    /**
+     * Send flow diagram logs to Flutter Flow tab
+     */
+    fun flowLog(message: String) {
         val payload = hashMapOf<String, Any?>(
             "message" to message,
-            "level" to level,
-            "tag" to tag
+            "timestamp" to System.currentTimeMillis()
         )
 
         val channel = methodChannel
         if (channel != null) {
             // Channel is ready, send immediately
             if (Looper.myLooper() == Looper.getMainLooper()) {
-                channel.invokeMethod("debugLog", payload)
+                channel.invokeMethod("flowLog", payload)
             } else {
-                mainHandler.post { channel.invokeMethod("debugLog", payload) }
-            }
-        } else {
-            // Channel not ready, buffer the log
-            if (logBuffer.size < MAX_BUFFER_SIZE) {
-                logBuffer.offer(payload)
-            } else {
-                // Remove oldest log if buffer is full
-                logBuffer.poll()
-                logBuffer.offer(payload)
+                mainHandler.post { channel.invokeMethod("flowLog", payload) }
             }
         }
+        // Note: Flow logs are NOT buffered - they're real-time only
     }
 }
 

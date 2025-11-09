@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../../core/utils/debug_logger.dart';
+import '../../../core/utils/flow_log_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../providers/permissions_provider.dart';
 import '../../providers/app_lock_provider.dart';
@@ -100,7 +101,7 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
           indicatorColor: Colors.greenAccent,
           tabs: const [
             Tab(icon: Icon(Icons.dashboard), text: 'Status'),
-            Tab(icon: Icon(Icons.list), text: 'Logs'),
+            Tab(icon: Icon(Icons.account_tree), text: 'Flow'),
             Tab(icon: Icon(Icons.settings), text: 'Actions'),
           ],
         ),
@@ -109,7 +110,7 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
         controller: _tabController,
         children: [
           _buildStatusTab(),
-          _buildLogsTab(),
+          _buildFlowTab(),
           _buildActionsTab(),
         ],
       ),
@@ -197,12 +198,12 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
     );
   }
 
-  Widget _buildLogsTab() {
+  Widget _buildFlowTab() {
     return Container(
       color: Colors.black,
       child: Column(
         children: [
-          // Log controls
+          // Flow controls
           Container(
             padding: const EdgeInsets.all(8),
             color: Colors.grey[900],
@@ -210,7 +211,7 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
               children: [
                 Expanded(
                   child: Text(
-                    'Real-time Logs',
+                    '🔐 Lock Flow Diagram',
                     style: TextStyle(
                       color: Colors.greenAccent,
                       fontWeight: FontWeight.bold,
@@ -219,7 +220,7 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
                 ),
                 TextButton.icon(
                   onPressed: () {
-                    DebugLogger().clear();
+                    FlowLogProvider().clear();
                   },
                   icon: const Icon(Icons.delete, size: 16),
                   label: const Text('Clear'),
@@ -231,27 +232,51 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
             ),
           ),
 
-          // Logs list
+          // Flow logs list
           Expanded(
             child: ListenableBuilder(
-              listenable: DebugLogger(),
+              listenable: FlowLogProvider(),
               builder: (context, child) {
-                final logs = DebugLogger().logs;
+                final logs = FlowLogProvider().logs;
 
                 if (logs.isEmpty) {
                   return Center(
-                    child: Text(
-                      'No logs yet',
-                      style: TextStyle(color: Colors.grey[600]),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.account_tree,
+                          size: 64,
+                          color: Colors.grey[700],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No flow logs yet',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Lock an app to see the flow',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
 
                 return ListView.builder(
+                  reverse: false,
+                  padding: const EdgeInsets.all(8),
                   itemCount: logs.length,
                   itemBuilder: (context, index) {
                     final log = logs[index];
-                    return _buildLogEntry(log);
+                    return _buildFlowEntry(log);
                   },
                 );
               },
@@ -500,72 +525,31 @@ class _DebugMonitorScreenState extends State<DebugMonitorScreen> with SingleTick
     );
   }
 
-  Widget _buildLogEntry(LogEntry log) {
-    Color color;
-    switch (log.level) {
-      case LogLevel.debug:
-        color = Colors.grey;
-        break;
-      case LogLevel.info:
-        color = Colors.blue;
-        break;
-      case LogLevel.warning:
-        color = Colors.orange;
-        break;
-      case LogLevel.error:
-        color = Colors.red;
-        break;
-      case LogLevel.success:
-        color = Colors.green;
-        break;
+  Widget _buildFlowEntry(FlowLogEntry log) {
+    // Color based on message content
+    Color color = Colors.greenAccent;
+    if (log.message.contains('🔒')) {
+      color = Colors.orangeAccent;
+    } else if (log.message.contains('🔓')) {
+      color = Colors.blueAccent;
+    } else if (log.message.contains('✅')) {
+      color = Colors.green;
+    } else if (log.message.contains('❌')) {
+      color = Colors.red;
+    } else if (log.message.contains('🔄')) {
+      color = Colors.purpleAccent;
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey[800]!)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            log.formattedTime,
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 10,
-              fontFamily: 'monospace',
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (log.tag != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                log.tag!,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Text(
-              log.message,
-              style: TextStyle(
-                color: color,
-                fontSize: 12,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: SelectableText(
+        log.message,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontFamily: 'Courier',
+          height: 1.2,
+        ),
       ),
     );
   }

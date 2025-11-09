@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import '../utils/logger.dart';
 import '../utils/debug_logger.dart';
+import '../utils/flow_log_provider.dart';
 import 'navigation_service.dart';
 
 /// Service to communicate with native Android code via method channels
@@ -17,20 +18,21 @@ class NativeService {
     _channel.setMethodCallHandler((call) async {
       switch (call.method) {
         case 'debugLog':
+          // Debug logs disabled - all removed from native
+          return true;
+
+        case 'flowLog':
           try {
             final args = (call.arguments is Map)
                 ? Map<String, dynamic>.from(call.arguments as Map)
                 : <String, dynamic>{};
             final message = args['message']?.toString() ?? '';
-            final tag = args['tag']?.toString();
-            final levelStr = args['level']?.toString() ?? 'info';
-            final level = _parseLevel(levelStr);
-            // Route to in-app DebugLogger
-            // Do not spam production logs; this is internal UI
-            DebugLogger().log(message, level: level, tag: tag);
+
+            // Route to FlowLogProvider for display in Flow tab
+            FlowLogProvider().addLog(message);
             return true;
           } catch (e) {
-            logger.e('Error handling debugLog', error: e);
+            logger.e('Error handling flowLog', error: e);
             return false;
           }
         case 'showLockScreen':
