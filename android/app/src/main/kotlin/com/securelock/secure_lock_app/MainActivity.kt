@@ -80,8 +80,7 @@ class MainActivity : FlutterFragmentActivity() {
 
         if (showLockScreen && lockedPackage != null) {
             Log.d(TAG, "Handling lock screen intent for: $lockedPackage")
-            ChannelBridge.debugLog("Lock screen intent received for: $lockedPackage", level = "info", tag = "MainActivity")
-            
+
             // Notify Flutter to show lock screen (or defer until channel ready)
             if (::methodChannel.isInitialized) {
                 Log.d(TAG, "Method channel ready, sending lock screen request")
